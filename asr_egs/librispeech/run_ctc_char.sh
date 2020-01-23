@@ -4,7 +4,7 @@
            ## This relates to the queue.
 [ -f path.sh ] && . ./path.sh;
 
-stage=2
+stage=1
 exp=ctc_char
 exp_base=./exp/$exp # data/
 data=$exp_base/data
