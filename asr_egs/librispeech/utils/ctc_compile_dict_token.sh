@@ -17,7 +17,7 @@
 # This script compiles the lexicon and CTC tokens into FSTs. FST compiling slightly differs between the
 # phoneme and character-based lexicons. 
 
-dict_type="phn"        # the type of lexicon, either "phn" or "char"
+dict_type="char"        # the type of lexicon, either "phn" or "char"
 space_char="<SPACE>"   # the character you have used to represent spaces
 
 . utils/parse_options.sh 
@@ -56,10 +56,13 @@ ndisambig=$[$ndisambig+1];
 # Get the full list of CTC tokens used in FST. These tokens include <eps>, the blank <blk>, the actual labels (e.g.,
 # phonemes), and the disambiguation symbols. 
 cat $srcdir/units.txt | awk '{print $1}' > $tmpdir/units.list
-(echo '<eps>'; echo '<blk>';) | cat - $tmpdir/units.list $tmpdir/disambig.list | awk '{print $1 " " (NR-1)}' > $dir/tokens.txt
+#(echo '<eps>'; echo '<blk>';) | cat - $tmpdir/units.list $tmpdir/disambig.list | awk '{print $1 " " (NR-1)}' > $dir/tokens.txt
+echo '<blk>' > $tmpdir/blk_tmp 
+(echo '<eps>'; ) | cat - $tmpdir/units.list $tmpdir/blk_tmp $tmpdir/disambig.list | awk '{print $1 " " (NR-1)}' > $dir/tokens.txt
 
 # Compile the tokens into FST
-utils/ctc_token_fst.py $dir/tokens.txt | fstcompile --isymbols=$dir/tokens.txt --osymbols=$dir/tokens.txt \
+utils/ctc_token_fst.py $dir/tokens.txt > $dir/ctc_token_output
+cat $dir/ctc_token_output | fstcompile --isymbols=$dir/tokens.txt --osymbols=$dir/tokens.txt \
    --keep_isymbols=false --keep_osymbols=false | fstarcsort --sort_type=olabel > $dir/T.fst || exit 1;
 
 # Encode the words with indices. Will be used in lexicon and language model FST compiling. 
@@ -88,8 +91,14 @@ case $dict_type in
        ;;
   char) 
      echo "Building a character-based lexicon, with $space_char as the space"
-     utils/make_lexicon_fst.pl --pron-probs $tmpdir/lexiconp_disambig.txt 0.5 "$space_char" '#'$ndisambig | \
-       fstcompile --isymbols=$dir/tokens.txt --osymbols=$dir/words.txt \
+#     utils/make_lexicon_fst.pl --pron-probs $tmpdir/lexiconp_disambig.txt 0.5 "$space_char" '#'$ndisambig | \
+#       fstcompile --isymbols=$dir/tokens.txt --osymbols=$dir/words.txt \
+#       --keep_isymbols=false --keep_osymbols=false |   \
+#       fstaddselfloops  "echo $token_disambig_symbol |" "echo $word_disambig_symbol |" | \
+#       fstarcsort --sort_type=olabel > $dir/L.fst || exit 1;
+#       ;;
+     utils/make_lexicon_fst.pl --pron-probs $tmpdir/lexiconp_disambig.txt 0.5 "$space_char" '#'$ndisambig > $dir/make_lexicon_output; \
+       cat $dir/make_lexicon_output | fstcompile --isymbols=$dir/tokens.txt --osymbols=$dir/words.txt \
        --keep_isymbols=false --keep_osymbols=false |   \
        fstaddselfloops  "echo $token_disambig_symbol |" "echo $word_disambig_symbol |" | \
        fstarcsort --sort_type=olabel > $dir/L.fst || exit 1;
